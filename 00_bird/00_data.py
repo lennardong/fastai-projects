@@ -1,5 +1,5 @@
 
-!pip install -Uqq duckduckgo_search
+# !pip install -Uqq duckduckgo_search
 
 # ML
 import fastbook as fb
