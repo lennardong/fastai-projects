@@ -1,0 +1,12 @@
+# CICD 
+black
+pylint 
+pytest
+pytest-cov
+
+# Microservices
+flask
+streamlit
+
+# Utils
+duckduckgo_search
