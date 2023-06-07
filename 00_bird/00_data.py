@@ -15,14 +15,11 @@ from pathlib import Path
 from typing import List
 from time import sleep
 
-# Get the current working directory
-cwd = Path.cwd()
 
 #############################################
-# Download images
-#############################################
-
 # HELPER FUNCTIONS
+#############################################
+
 def get_image_urls(term: str, max_images = int, VERBOSE = False) -> List[str]:
     '''
     Returns the URL of images matching the search term
@@ -70,7 +67,6 @@ def save_images(prefix: str, urls: list, subfolder: str, VERBOSE = False) -> Non
         else:
             filename = cwd / Path("data") / f"{prefix}_{idx:03d}.jpg"
         
-
         # Get the image
         try: 
             response = requests.get(url, stream=True)
@@ -87,14 +83,49 @@ def save_images(prefix: str, urls: list, subfolder: str, VERBOSE = False) -> Non
         except:
             continue
 
+def convert_images_to_rgb(folder_path: Path, VERBOSE: bool = False):
+    ''' Convert images to RGB mode and delete corrupted images
+
+    Notes
+    - p also checks for "palette" image types
+    '''
+    for image_path in folder_path.glob('**/*.jpg'):
+        try:
+            img = Image.open(image_path)
+            if img.mode == 'RGBA' or img.mode == 'P':
+                img = img.convert('RGB')
+                new_image_path = image_path.with_suffix('.jpg')
+                img.save(new_image_path)
+                if VERBOSE:
+                    print(f"Converted image: {image_path} to {new_image_path}")
+        except Exception as e:
+            if VERBOSE:
+                print(f"Corrupted image: {image_path} - {e}")
+            image_path.unlink()
+
+
 ###########################
 # RUN
 ###########################
 
 # Get a bunch of training images
 def __main__():
+    # Get the current working directory
+    CWD = Path.cwd()
+    DATAPATH = CWD / Path('data')
     
     terms = ['bird', 'forest']
     for term in terms:
         urls = get_image_urls(term, max_images = 100, VERBOSE=False)
         save_images(term, urls, subfolder=term, VERBOSE=False)
+
+    # Convert images to RGB
+    # Convert images to RGB mode and delete corrupted images before creating the DataBlock
+    convert_images_to_rgb(DATAPATH, VERBOSE = True)
+
+
+###########################
+# TODO
+###########################
+
+# [ ] FIXME - Cleanup save images so DATAPTH is passed into it

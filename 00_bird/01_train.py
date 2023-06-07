@@ -1,7 +1,3 @@
-#############################################
-# Inits
-#############################################
-
 # ML
 import fastbook as fb
 import fastai.vision.all as vision
@@ -9,39 +5,21 @@ import fastai.vision.widgets as vision_widgets
 import fastai as fa
 import fastcore as fc
 
+# Data
+import pandas as pd
+
 # Utils 
-import shutil
-from pathlib import Path
+from datetime import datetime
 from typing import List
+from pathlib import Path
 from PIL import Image
 from IPython.display import clear_output, DisplayHandle
-from datetime import datetime
 import matplotlib.pyplot as plt
 
 
 #############################################
 # HELPER FUNCTIONS
 #############################################
-
-def convert_images_to_rgb(folder_path: Path, VERBOSE: bool = False):
-    ''' Convert images to RGB mode and delete corrupted images
-
-    Notes
-    - p also checks for "palette" image types
-    '''
-    for image_path in folder_path.glob('**/*.jpg'):
-        try:
-            img = Image.open(image_path)
-            if img.mode == 'RGBA' or img.mode == 'P':
-                img = img.convert('RGB')
-                new_image_path = image_path.with_suffix('.jpg')
-                img.save(new_image_path)
-                if VERBOSE:
-                    print(f"Converted image: {image_path} to {new_image_path}")
-        except Exception as e:
-            if VERBOSE:
-                print(f"Corrupted image: {image_path} - {e}")
-            image_path.unlink()
 
 def update_patch(self, obj):
     '''
@@ -53,74 +31,157 @@ def update_patch(self, obj):
     self.display(obj)
 
 
-def debug_model(learner, VERBOSE = False):
-    dt = datetime.now().strftime("%Y%m%d_%H%M%S")
+def plot_matrix(learner: vision.Learner, logpath: Path, prefix: str, VERBOSE = False):
+    '''
+    Returns NONE
 
-    # Check for folder "plots", if none create it 
-    plots_path = Path.cwd() / 'plots'
-    plots_path.mkdir(parents=True, exist_ok=True)
-
-    # Create debugging objects 
+    Plots Confusion Matrix and Top Losses
+    '''
+    # Init variables
     interp = vision.ClassificationInterpretation.from_learner(learner)
+    
+    # Check for folder path
+    logpath.mkdir(parents=True, exist_ok=True)
 
-    # save to file
-    if VERBOSE: print(f"...Saving top losses to {plots_path}")
-    plt.figure(figsize=(12, 12)) 
-    interp.plot_top_losses(5, nrows=2)
-    plt.savefig(plots_path / f"{dt}_top_losses.png")
+    # Plot top losses as a separate figure and save it
+    interp.plot_top_losses(9, nrows=3)
+    plt.savefig(logpath / f"{prefix}_topLosses.png", bbox_inches='tight')
+    plt.close()
 
-    # save to file 
-    if VERBOSE: print(f"...Saving confusion matrix to {plots_path}")
-    plt.figure(figsize=(12, 12)) 
-    interp.plot_confusion_matrix()
-    plt.savefig(plots_path / f"{dt}_confusion_matrix.png")
+    # Plot confusion matrix as a separate figure and save it
+    interp.plot_confusion_matrix(figsize=(6, 6))
+    plt.savefig(logpath / f"{prefix}_confusionMatrix.png", bbox_inches='tight')
+    plt.close()
+    
+    return None
 
-    # Save most confused to a file
-    most_confused = interp.most_confused(min_val=2)
-    if VERBOSE: print(f"...Saving most confused to {plots_path}")
-    with open(plots_path / f"{dt}_most_confused.txt", 'w') as f:
-        for item in most_confused:
-            f.write("%s\n" % str(item))
+
+def plot_training_csv(source: str, logpath: Path, prefix: str, VERBOSE = False):
+    '''
+    Function to plot training and validation losses from a CSV file.
+
+    Parameters:
+    csv_path (Path or str): Path to the CSV file
+    '''
+    ##################
+    ## INITS
+
+    # Variables
+    data = pd.read_csv(source)
+
+    # Plot 
+    fig, ax1 = plt.subplots(figsize=(7, 5))
+    fig.suptitle('Losses & Metrics')
+
+    ################
+    ## PLOT 1
+    ## - training and validation losses on the first y-axis
+    ## - add labels and title to the first y-axis
+    
+    ax1.plot(data['epoch'], data['train_loss'], label='Training Loss', marker = "o")
+    ax1.plot(data['epoch'], data['valid_loss'], label='Validation Loss', marker = "o")
+
+    ax1.set_xlabel('Epochs')
+    ax1.set_ylabel('Loss')
+    
+    #################
+    ## PLOT 2
+    ## - create a second y-axis sharing the same x-axis
+    ## - plot error rate as a bar plot on the second y-axis
+    ## - add values on top of the bars
+    ## - add a label to the second y-axis
+    
+    ax2 = ax1.twinx()
+
+    bars = ax2.bar(
+        x = data['epoch'], 
+        height = data['error_rate'], 
+        width = 0.4,
+        alpha=0.5, 
+        label='Error Rate', 
+        color='gray',
+        )
+    
+    for bar in bars:
+        yval = bar.get_height()
+        ax2.text(x = bar.get_x() + bar.get_width()/2.0, y = yval, s = round(yval, 4), va='bottom')
+
+    ax2.set_ylabel('Error Rate')
+
+    ##################
+    ## CLEANUP
+    ## - legends
+    ## - save and close 
+
+    ax1.legend(loc='upper right')
+    
+    plt.savefig(logpath / f"{prefix}_training.png", bbox_inches='tight')
+    plt.close()
+
+    return None
 
 
 #############################################
 # RUN
 #############################################
 
-# Run progress bar fix
+###################
+## INIT
+## - run progress bar fix
+## - get the current working directory
+
 DisplayHandle.update = update_patch
 
-# Get the current working directory
 CWD = Path.cwd()
 DATAPATH = CWD / Path('data')
+LOGPATH = CWD / Path('logs')
+LOGFILE = "training.csv"
+DT = datetime.now().strftime("%y%m%d%H%M")
 
-# Convert images to RGB mode and delete corrupted images before creating the DataBlock
-convert_images_to_rgb(DATAPATH, VERBOSE = True)
+###################
+## LOAD
+## - create a datablock template
+## - load data into the datablock
 
-# Load data into a datablock
 training_images = vision.DataBlock(
     blocks =  (vision.ImageBlock, vision.CategoryBlock),
     get_items = vision.get_image_files,
     splitter = vision.RandomSplitter(valid_pct=0.2, seed=42),
     get_y = vision.parent_label,
     item_tfms =  vision.RandomResizedCrop(256, min_scale=0.5),
-    batch_tfms = vision.aug_transforms()
+    batch_tfms = vision.aug_transforms()  # ootb augmentation techniques
     )
 
-# Create a dataloader from the datablock
 dls = training_images.dataloaders(DATAPATH)
 
-# Train
-learn = vision.vision_learner(dls = dls, arch = vision.resnet18, metrics = vision.error_rate)
+###################
+## TRAIN
+## - create a learner from loaded data
+## - run finetune, so only head is retrained
+
+learn = vision.vision_learner(
+    dls = dls, 
+    arch = vision.resnet18, 
+    metrics = vision.error_rate, 
+    cbs = [vision.CSVLogger(fname = LOGFILE)] # callback to a CSV logger, https://docs.fast.ai/callback.progress.html
+    )
+
 learn.fine_tune(4)
-print(f"Model performance score: {learn.validate()}")
 
-debug_model(learn)
+###################
+## EVALUATE
+## - plot training metrics
+## - check confusion matrix and errors 
+
+plot_training_csv(source = LOGFILE, logpath=LOGPATH, prefix = DT)
+plot_matrix(learn, logpath = LOGPATH, prefix = DT, VERBOSE = False)
+
 
 #############################################
-# TODO
+## TODO
 #############################################
 
-# [x] TODO - solve logging - https://docs.fast.ai/callback.progress.html, Something to do with callbacks
-# [] Saving - update script to save confusion matrix & top losses to a file <- needs fixing. consider making it one plot
-# [] Logging - update script to save training data to file
+# [x] Solve Training Logging - https://docs.fast.ai/callback.progress.html, Something to do with callbacks
+# [x] Saving - update script to save confusion matrix & top losses to a file <- needs fixing. consider making it one plot
+# [x] Logging - update script to save training data to file
+# [ ] FIXME - Script - enable running from CLI
