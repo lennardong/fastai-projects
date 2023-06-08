@@ -8,6 +8,9 @@ install:
 	pip install --upgrade pip &&\
 		pip install -r requirements.txt
 
+install-mamba:
+	mamba install --file requirements.txt -y || pip install -r requirements.txt
+
 # Lint code
 lint:
 	python -m pylint --disable=R,C **/*.py

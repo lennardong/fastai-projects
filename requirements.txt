@@ -10,3 +10,9 @@ streamlit
 
 # Utils
 duckduckgo_search
+ipywidgets
+
+# ML
+fastai>=2.0.0
+graphviz
+sentencepiece
