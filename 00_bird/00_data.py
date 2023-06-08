@@ -38,7 +38,7 @@ def get_image_urls(term: str, max_images=int, VERBOSE=False) -> List[str]:
             license_image=None,
         )
         urls = [image["image"] for image in images]
-    
+
     if VERBOSE:
         print(f"... gotten: {len(urls)} URLs")
 
@@ -67,14 +67,14 @@ def save_images(
 
         # Get the image
         try:
-            response = requests.get(url, stream=True, timeout = 2)
+            response = requests.get(url, stream=True, timeout=2)
             response.raise_for_status()
 
             # Save
             with open(filename, "wb") as out_file:
                 out_file.write(response.content)
                 sleep(1)
-            
+
             # Debugging
             if VERBOSE:
                 print(f"...saving image {idx} to {filename}")
@@ -109,6 +109,7 @@ def convert_images_to_rgb(path: Path, VERBOSE: bool = False):
 # RUN
 ###########################
 
+
 # Get a bunch of training images
 def main():
     # Get the current working directory
@@ -118,12 +119,11 @@ def main():
     terms = ["bird", "forest"]
     for term in terms:
         urls = get_image_urls(term=term, max_images=100, VERBOSE=True)
-        save_images(
-            path=DATAPATH, subfolder=term, prefix=term, urls=urls, VERBOSE=True
-            )
+        save_images(path=DATAPATH, subfolder=term, prefix=term, urls=urls, VERBOSE=True)
 
     # Convert images to RGB mode and delete corrupted images before creating the DataBlock
     convert_images_to_rgb(path=DATAPATH, VERBOSE=True)
+
 
 if __name__ == "__main__":
     main()

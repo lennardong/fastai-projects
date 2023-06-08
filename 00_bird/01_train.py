@@ -1,5 +1,6 @@
 # ML
 import fastai.vision.all as vision
+
 # import fastbook as fb
 # import fastai.vision.widgets as vision_widgets
 # import fastai as fa
@@ -13,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from IPython.display import clear_output, DisplayHandle
 import matplotlib.pyplot as plt
+
 # from typing import List
 
 
@@ -29,12 +31,12 @@ def update_patch(self, obj):
     """
     clear_output(wait=True)
     self.display(obj)
-    
+
     return None
 
 
 def plot_matrix(learner: vision.Learner, logpath: Path, prefix: str):
-    """ Plots Confusion Matrix and Top Losses
+    """Plots Confusion Matrix and Top Losses
     Returns NONE
 
     Inputs
@@ -62,7 +64,7 @@ def plot_matrix(learner: vision.Learner, logpath: Path, prefix: str):
 
 
 def plot_loss_and_metrics(source: str, logpath: Path, prefix: str):
-    """ Plot losses and metrics from a CSV file.
+    """Plot losses and metrics from a CSV file.
     Returns None
 
     Inputs
@@ -130,30 +132,57 @@ def plot_loss_and_metrics(source: str, logpath: Path, prefix: str):
     return None
 
 
+def export_model(path: Path, learner: vision.vision_learner, prefix: str):
+    """Exports the model to a pickle
+
+    Returns None
+
+    Inputs
+    - path: the path to save the model to
+    - learner: the learner object
+    - prefix: the prefix to add to the model name
+
+    Logic
+    - Checks the  callback for CSV logger and removes it
+    """
+    # Check for CSV Logger
+    for cb in learner.cbs:
+        if isinstance(cb, vision.CSVLogger):
+            learner.remove_cbs(vision.CSVLogger)
+
+    learner.export(path / f"{prefix}_model.pkl")
+
+    return None
+
+
 #############################################
 # RUN
 #############################################
-def main():
-    ''' Main function to run the script
-    '''
-
+if __name__ == "__main__":
     ###################
     ## INIT
     ## - run progress bar fix
     ## - get the current working directory
+    ## - check and create folders
 
     DisplayHandle.update = update_patch
 
     CWD = Path.cwd()
     DATAPATH = CWD / Path("data")
     LOGPATH = CWD / Path("logs")
+    MODELPATH = CWD / Path("models")
     LOGFILE = "training.csv"
     DT = datetime.now().strftime("%y%m%d%H%M")
+
+    for path in [DATAPATH, LOGPATH, MODELPATH]:
+        path.mkdir(parents=True, exist_ok=True)
 
     ###################
     ## LOAD
     ## - create a datablock template
     ## - load data into the datablock
+
+    print("\nINIT...")
 
     training_images = vision.DataBlock(
         blocks=(vision.ImageBlock, vision.CategoryBlock),
@@ -171,6 +200,8 @@ def main():
     ## - create a learner from loaded data
     ## - run finetune, so only head is retrained
 
+    print("\nTRAINING...")
+
     learn = vision.vision_learner(
         dls=dls,
         arch=vision.resnet18,
@@ -180,19 +211,21 @@ def main():
         ],  # callback to a CSV logger, https://docs.fast.ai/callback.progress.html
     )
 
-    learn.fine_tune(4)
+    learn.fine_tune(6)
 
     ###################
     ## EVALUATE
     ## - plot training metrics
     ## - check confusion matrix and errors
 
+    print("\nPLOTTING EVALS")
     plot_loss_and_metrics(source=LOGFILE, logpath=LOGPATH, prefix=DT)
     plot_matrix(learn, logpath=LOGPATH, prefix=DT)
 
+    print("\nEXPORTING")
+    export_model(path=MODELPATH, learner=learn, prefix=DT)
 
-if __name__ == "__main__":
-    main()
+    print("\nSCRIPT COMPLETE!")
 
 #############################################
 ## TICKLERS
