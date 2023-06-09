@@ -14,3 +14,6 @@ Implementation Notes:
 - Deployment: streamlit implementation instead of voila
 - Data Augmentation: small dataset augmented via crops, skews, rotates and mirrors.
 - Tuning & Diagnosis: use of confusion matrixes and `plot_top_losses` to diagnose dataset for task
+
+## Celebrity Twin
+![20230609-005503](https://github.com/lennardong/fastai-projects/assets/29778721/4f65dc57-d605-4f95-bf2a-f8879a3db73f)
